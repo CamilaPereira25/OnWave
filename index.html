@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Campeonatos - OnWave</title>
+  <style>
+    body {
+      background: #f9f9f9;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 {
+      color: #043c64;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .h1-logo {
+      height: 40px;
+    }
+    .form-group, .campeonato-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 2rem;
+      margin: 1rem auto;
+      max-width: 800px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+    }
+    label {
+      display: block;
+      margin-top: 0.5rem;
+      font-weight: bold;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-top: 0.25rem;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #043c64;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .campeonato-list {
+      margin-top: 2rem;
+    }
+    .campeonato-card h3 {
+      margin: 0 0 0.5rem 0;
+      color: #043c64;
+    }
+    .actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .popup {
+      background: #d0ebff;
+      border: 1px solid #043c64;
+      color: #043c64;
+      padding: 1rem;
+      border-radius: 10px;
+      margin: 1rem auto;
+      max-width: 800px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      max-width: 800px;
+      margin: 0 auto;
+      justify-content: center;
+    }
+    .premiacao-select {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  
+  <h1>
+  Cadastro de Campeonatos - OnWave 
+  <img src="img/onwave-logo.png" alt="OnWave Logo" class="h1-logo" style="vertical-align: middle;">
+</h1>
+
+  <div class="popup" id="popup" style="display: none;">Campeonato selecionado para edição! Abaixo você pode editar os campos.</div>
+
+  <div class="form-group" id="formulario">
+    <input type="hidden" id="id_edicao">
+    <label>Nome do Campeonato</label>
+    <input type="text" id="nome">
+    <label>Localização</label>
+    <input type="text" id="localizacao">
+    <label>Data de Início</label>
+    <input type="date" id="data_inicio">
+    <label>Data de Término</label>
+    <input type="date" id="data_fim">
+    <label>Categorias (separadas por vírgula)</label>
+    <input type="text" id="categorias">
+    <label>Premiação</label>
+    <div class="premiacao-select">
+      <select id="moeda">
+        <option value="R$">R$ Real</option>
+        <option value="$">$ Dólar</option>
+        <option value="€">€ Euro</option>
+        <option value="£">£ Libra</option>
+      </select>
+      <input type="text" id="premiacao">
+    </div>
+    <button onclick="salvarCampeonato()" id="botaoSalvar">Cadastrar Campeonato</button>
+  </div>
+
+  <div class="filter-bar">
+    <input type="text" id="filtroNome" placeholder="Filtrar por nome" oninput="filtrarLista()">
+  </div>
+
+  <div class="campeonato-list" id="lista"></div>
+
+  <script>
+    const api = "http://localhost:3000/campeonatos";
+    let campeonatosOriginais = [];
+
+    async function carregarCampeonatos() {
+      const res = await fetch(api);
+      campeonatosOriginais = await res.json();
+      filtrarLista();
+    }
+
+    function filtrarLista() {
+      const nomeFiltro = document.getElementById("filtroNome").value.toLowerCase();
+      let listaFiltrada = campeonatosOriginais.filter(c => c.nome.toLowerCase().includes(nomeFiltro));
+
+      listaFiltrada.sort((a, b) => a.nome.localeCompare(b.nome));
+
+      const lista = document.getElementById("lista");
+      lista.innerHTML = "";
+
+      listaFiltrada.forEach(c => {
+        const card = document.createElement("div");
+        card.className = "campeonato-card";
+        card.innerHTML = `
+          <h3>${c.nome}</h3>
+          <p><strong>Localização:</strong> ${c.localizacao}</p>
+          <p><strong>Data:</strong> ${c.data_inicio} a ${c.data_fim}</p>
+          <p><strong>Categorias:</strong> ${c.categorias.join(", ")}</p>
+          <p><strong>Premiação:</strong> ${c.premiacao}</p>
+          <div class="actions">
+            <button onclick='editarCampeonato(${JSON.stringify(c)})'>Editar</button>
+            <button onclick='removerCampeonato("${c._id}")'>Remover</button>
+          </div>
+        `;
+        lista.appendChild(card);
+      });
+    }
+
+    async function salvarCampeonato() {
+      const id = document.getElementById("id_edicao").value;
+      const moeda = document.getElementById("moeda").value;
+      const valorPremiacao = document.getElementById("premiacao").value;
+      const campeonato = {
+        nome: document.getElementById("nome").value,
+        localizacao: document.getElementById("localizacao").value,
+        data_inicio: document.getElementById("data_inicio").value,
+        data_fim: document.getElementById("data_fim").value,
+        categorias: document.getElementById("categorias").value.split(",").map(i => i.trim()),
+        premiacao: moeda + " " + valorPremiacao
+      };
+
+      if (id) {
+        await fetch(`${api}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(campeonato)
+        });
+        document.getElementById("botaoSalvar").innerText = "Cadastrar Campeonato";
+      } else {
+        await fetch(api, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(campeonato)
+        });
+      }
+
+      limparFormulario();
+      carregarCampeonatos();
+    }
+
+    function editarCampeonato(c) {
+      document.getElementById("id_edicao").value = c._id;
+      document.getElementById("nome").value = c.nome;
+      document.getElementById("localizacao").value = c.localizacao;
+      document.getElementById("data_inicio").value = c.data_inicio;
+      document.getElementById("data_fim").value = c.data_fim;
+      document.getElementById("categorias").value = c.categorias.join(", ");
+
+      const moedas = ["R$", "$", "€", "£"];
+      let encontrada = moedas.find(m => c.premiacao.startsWith(m));
+      if (!encontrada) encontrada = "R$";
+      document.getElementById("moeda").value = encontrada;
+      document.getElementById("premiacao").value = c.premiacao.replace(encontrada, "").trim();
+
+      document.getElementById("botaoSalvar").innerText = "Salvar Alterações";
+      document.getElementById("popup").style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function removerCampeonato(id) {
+      await fetch(`${api}/${id}`, { method: "DELETE" });
+      carregarCampeonatos();
+    }
+
+    function limparFormulario() {
+      document.getElementById("id_edicao").value = "";
+      document.getElementById("nome").value = "";
+      document.getElementById("localizacao").value = "";
+      document.getElementById("data_inicio").value = "";
+      document.getElementById("data_fim").value = "";
+      document.getElementById("categorias").value = "";
+      document.getElementById("moeda").value = "R$";
+      document.getElementById("premiacao").value = "";
+      document.getElementById("botaoSalvar").innerText = "Cadastrar Campeonato";
+      document.getElementById("popup").style.display = "none";
+    }
+
+    carregarCampeonatos();
+  </script>
+</body>
+</html>

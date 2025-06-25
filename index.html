@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OnWave Chatbot</title>
+  <style>
+    body { margin: 0; background: #f2f2f2; font-family: Arial, sans-serif; }
+    .chat-container {
+      max-width: 400px; margin: auto; background: #fff; border-radius: 10px;
+      overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; height: 95vh;
+    }
+    .chat-header {
+      background: #043c64; color: #fff; padding: 1rem;
+      font-weight: bold; text-align: center;
+    }
+    .chat-body { padding: 1rem; flex-grow: 1; overflow-y: auto; }
+    .chat-bubble {
+      background: #043c64; color: white; border-radius: 10px;
+      padding: 1rem; margin: 0.5rem 0;
+    }
+    .chat-response {
+      background: #d0ebff; color: #000; border-radius: 10px;
+      padding: 1rem; margin: 0.5rem 0;
+    }
+    .user-bubble {
+      background: #eee; color: #333; align-self: flex-end;
+      margin-left: auto; border-radius: 10px; padding: 1rem;
+    }
+    button {
+      width: 100%; margin: 0.25rem 0; padding: 0.75rem;
+      border: none; background: #043c64; color: white;
+      font-weight: bold; border-radius: 5px; cursor: pointer;
+    }
+    input {
+      padding: 0.75rem; border: none; border-top: 1px solid #ccc;
+      width: 100%; box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">On Wave</div>
+    <div class="chat-body" id="chat">
+      <div class="chat-bubble">Eai surfista, eu sou o ON WAVE, com qual campeonato posso te ajudar?</div>
+      <div id="campeonatos"></div>
+    </div>
+    <input type="text" placeholder="Digite aqui" disabled>
+  </div>
+<script>
+</script>
+<script>
+    // Inicializa o chat com a mensagem de boas-vindas
+    document.addEventListener("DOMContentLoaded", () => {
+      const input = document.querySelector("input");
+      input.disabled = false;
+      input.focus();
+      input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          const texto = input.value.trim();
+          if (texto) {
+            responder(texto, "OnWave");
+            input.value = "";
+          }
+        }
+      });
+    });
+
+    const chat = document.getElementById("chat");
+    const area = document.getElementById("campeonatos"); // ✅ declarado aqui fora apenas
+
+    const perguntas = [
+      "Detalhes do campeonato",
+      "Localização do evento",
+      "Categorias de competição",
+      "Saber sobre a premiação",
+      "Voltar ao menu de campeonatos",
+      "Finalizar"
+  ];
+
+    async function carregarCampeonatos() {
+      try {
+        const res = await fetch("http://localhost:3000/campeonatos");
+        const campeonatos = await res.json();
+        area.innerHTML = "";
+        campeonatos.forEach((camp, index) => {
+          const btn = document.createElement("button");
+          btn.textContent = `${index + 1}. ${camp.nome}`;
+          btn.onclick = () => selecionarCampeonato(camp.nome);
+          area.appendChild(btn);
+        });
+      } catch (error) {
+        area.innerHTML = `<div class='chat-bubble'>Erro ao carregar campeonatos.</div>`;
+        console.error("Erro ao buscar campeonatos:", error);
+      }
+    }
+    carregarCampeonatos();
+
+    function selecionarCampeonato(nome) {
+      chat.innerHTML += `<div class='user-bubble'>${nome}</div>`;
+      chat.innerHTML += `<div class='chat-bubble'>Você escolheu: ${nome}.<br>Quais informações você deseja saber?</div>`;
+      perguntas.forEach((q, index) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${index + 1}. ${q}`;
+        btn.onclick = () => responder(q, nome);
+        chat.appendChild(btn);
+      });
+    }
+
+    async function buscarRespostaAPI(campeonato, pergunta) {
+      try {
+        const response = await fetch(`http://localhost:3000/perguntas/${encodeURIComponent(campeonato)}`);
+        const data = await response.json();
+        const resposta = data.respostas_por_opcao[pergunta];
+        return resposta || "Informação não disponível.";
+      } catch (error) {
+        return "Erro ao buscar informação.";
+      }
+    }
+
+    function responder(texto, campeonato) {
+      chat.innerHTML += `<div class='user-bubble'>${texto}</div>`;
+      if (texto === "Voltar ao menu de campeonatos") {
+        location.reload();
+      } else if (texto === "Finalizar") {
+        chat.innerHTML += `<div class='chat-bubble'>Obrigada por usar o OnWave, se precisar de mais informações sobre campeonatos, estou aqui!</div>`;
+      } else {
+        buscarRespostaAPI(campeonato, texto).then(resposta => {
+          chat.innerHTML += `<div class='chat-response'>${resposta}</div>`;
+
+          // Reexibir opções após a resposta
+          chat.innerHTML += `<div class='chat-bubble'>Deseja saber mais sobre o ${campeonato}?</div>`;
+          perguntas.forEach((q, index) => {
+            const btn = document.createElement("button");
+            btn.textContent = `${index + 1}. ${q}`;
+            btn.onclick = () => responder(q, campeonato);
+            chat.appendChild(btn);
+          });
+        });
+      }
+    }
+  </script>
+  <script>
+  window.addEventListener("storage", function (event) {
+    if (event.key === "onwave_sync_update") {
+      console.log("🌀 Detecção de atualização externa. Recarregando campeonatos...");
+      if (typeof carregarCampeonatos === "function") {
+        carregarCampeonatos(); // recarrega os botões com novos campeonatos
+      } else {
+        location.reload(); // como alternativa
+      }
+    }
+  });
+  
+  document.addEventListener("DOMContentLoaded", () => {
+    carregarCampeonatos();
+  });
+
+</script>
+</body>
+</html>

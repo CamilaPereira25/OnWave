@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Cadastro de Campeonatos - OnWave</title>
   <style>
     body {
@@ -77,6 +77,7 @@
       max-width: 800px;
       text-align: center;
       font-weight: bold;
+      display: none;
     }
     .filter-bar {
       display: flex;
@@ -94,26 +95,26 @@
   </style>
 </head>
 <body>
-  
-  <h1>
-  Cadastro de Campeonatos - OnWave 
-  <img src="img/onwave-logo.png" alt="OnWave Logo" class="h1-logo" style="vertical-align: middle;">
-</h1>
 
-  <div class="popup" id="popup" style="display: none;">Campeonato selecionado para edição! Abaixo você pode editar os campos.</div>
+  <h1>
+    Cadastro de Campeonatos - OnWave 
+    <img src="img/onwave-logo.png" alt="OnWave Logo" class="h1-logo" />
+  </h1>
+
+  <div class="popup" id="popupMensagem"></div>
 
   <div class="form-group" id="formulario">
-    <input type="hidden" id="id_edicao">
+    <input type="hidden" id="id_edicao" />
     <label>Nome do Campeonato</label>
-    <input type="text" id="nome">
+    <input type="text" id="nome" />
     <label>Localização</label>
-    <input type="text" id="localizacao">
+    <input type="text" id="localizacao" />
     <label>Data de Início</label>
-    <input type="date" id="data_inicio">
+    <input type="date" id="data_inicio" />
     <label>Data de Término</label>
-    <input type="date" id="data_fim">
+    <input type="date" id="data_fim" />
     <label>Categorias (separadas por vírgula)</label>
-    <input type="text" id="categorias">
+    <input type="text" id="categorias" />
     <label>Premiação</label>
     <div class="premiacao-select">
       <select id="moeda">
@@ -122,13 +123,13 @@
         <option value="€">€ Euro</option>
         <option value="£">£ Libra</option>
       </select>
-      <input type="text" id="premiacao">
+      <input type="text" id="premiacao" />
     </div>
-    <button onclick="salvarCampeonato()" id="botaoSalvar">Cadastrar Campeonato</button>
+    <button type="button" onclick="salvarCampeonato()" id="botaoSalvar">Cadastrar Campeonato</button>
   </div>
 
   <div class="filter-bar">
-    <input type="text" id="filtroNome" placeholder="Filtrar por nome" oninput="filtrarLista()">
+    <input type="text" id="filtroNome" placeholder="Filtrar por nome" oninput="filtrarLista()" />
   </div>
 
   <div class="campeonato-list" id="lista"></div>
@@ -138,21 +139,25 @@
     let campeonatosOriginais = [];
 
     async function carregarCampeonatos() {
-      const res = await fetch(api);
-      campeonatosOriginais = await res.json();
-      filtrarLista();
+      try {
+        const res = await fetch(api);
+        campeonatosOriginais = await res.json();
+        filtrarLista();
+      } catch (error) {
+        alert("Erro ao carregar campeonatos.");
+        console.error(error);
+      }
     }
 
     function filtrarLista() {
-      const nomeFiltro = document.getElementById("filtroNome").value.toLowerCase();
-      let listaFiltrada = campeonatosOriginais.filter(c => c.nome.toLowerCase().includes(nomeFiltro));
-
-      listaFiltrada.sort((a, b) => a.nome.localeCompare(b.nome));
+      const filtro = document.getElementById("filtroNome").value.toLowerCase();
+      const filtrados = campeonatosOriginais.filter(c => c.nome.toLowerCase().includes(filtro));
+      filtrados.sort((a,b) => a.nome.localeCompare(b.nome));
 
       const lista = document.getElementById("lista");
       lista.innerHTML = "";
 
-      listaFiltrada.forEach(c => {
+      filtrados.forEach(c => {
         const card = document.createElement("div");
         card.className = "campeonato-card";
         card.innerHTML = `
@@ -163,7 +168,7 @@
           <p><strong>Premiação:</strong> ${c.premiacao}</p>
           <div class="actions">
             <button onclick='editarCampeonato(${JSON.stringify(c)})'>Editar</button>
-            <button onclick='removerCampeonato("${c._id}")'>Remover</button>
+            <button onclick='removerCampeonato("${c._id || c.id}")'>Remover</button>
           </div>
         `;
         lista.appendChild(card);
@@ -175,55 +180,91 @@
       const moeda = document.getElementById("moeda").value;
       const valorPremiacao = document.getElementById("premiacao").value;
       const campeonato = {
-        nome: document.getElementById("nome").value,
-        localizacao: document.getElementById("localizacao").value,
+        nome: document.getElementById("nome").value.trim(),
+        localizacao: document.getElementById("localizacao").value.trim(),
         data_inicio: document.getElementById("data_inicio").value,
         data_fim: document.getElementById("data_fim").value,
-        categorias: document.getElementById("categorias").value.split(",").map(i => i.trim()),
-        premiacao: moeda + " " + valorPremiacao
+        categorias: document.getElementById("categorias").value.split(",").map(i => i.trim()).filter(Boolean),
+        premiacao: moeda + " " + valorPremiacao.trim()
       };
 
-      if (id) {
-        await fetch(`${api}/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(campeonato)
-        });
-        document.getElementById("botaoSalvar").innerText = "Cadastrar Campeonato";
-      } else {
-        await fetch(api, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(campeonato)
-        });
+      if (!campeonato.nome) {
+        alert("Nome do campeonato é obrigatório.");
+        return;
       }
 
-      limparFormulario();
-      carregarCampeonatos();
+      try {
+        if (id) {
+          const res = await fetch(`${api}/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(campeonato)
+          });
+          console.log("PUT response:", res);
+          if (!res.ok) {
+            const erroTexto = await res.text();
+            throw new Error("Erro ao alterar campeonato: " + erroTexto);
+          }
+          mostrarMensagem("Campeonato alterado com sucesso!");
+        } else {
+          const res = await fetch(api, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(campeonato)
+          });
+          console.log("POST response:", res);
+          if (!res.ok) {
+            const erroTexto = await res.text();
+            throw new Error("Erro ao cadastrar campeonato: " + erroTexto);
+          }
+          mostrarMensagem("Campeonato cadastrado com sucesso!");
+        }
+
+        limparFormulario();
+        carregarCampeonatos();
+      } catch (error) {
+        alert(error.message);
+        console.error(error);
+      }
     }
 
     function editarCampeonato(c) {
-      document.getElementById("id_edicao").value = c._id;
-      document.getElementById("nome").value = c.nome;
-      document.getElementById("localizacao").value = c.localizacao;
-      document.getElementById("data_inicio").value = c.data_inicio;
-      document.getElementById("data_fim").value = c.data_fim;
-      document.getElementById("categorias").value = c.categorias.join(", ");
+      document.getElementById("id_edicao").value = c._id || c.id || "";
+      document.getElementById("nome").value = c.nome || "";
+      document.getElementById("localizacao").value = c.localizacao || "";
+      document.getElementById("data_inicio").value = c.data_inicio || "";
+      document.getElementById("data_fim").value = c.data_fim || "";
+      document.getElementById("categorias").value = (c.categorias || []).join(", ");
 
       const moedas = ["R$", "$", "€", "£"];
-      let encontrada = moedas.find(m => c.premiacao.startsWith(m));
+      let encontrada = moedas.find(m => c.premiacao && c.premiacao.startsWith(m));
       if (!encontrada) encontrada = "R$";
       document.getElementById("moeda").value = encontrada;
-      document.getElementById("premiacao").value = c.premiacao.replace(encontrada, "").trim();
+      document.getElementById("premiacao").value = c.premiacao ? c.premiacao.replace(encontrada, "").trim() : "";
 
       document.getElementById("botaoSalvar").innerText = "Salvar Alterações";
-      document.getElementById("popup").style.display = "block";
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      document.getElementById("popupMensagem").style.display = "block";
+      document.getElementById("popupMensagem").innerText = "Campeonato selecionado para edição! Abaixo você pode editar os campos.";
+
+      document.getElementById("formulario").scrollIntoView({behavior:"smooth"});
     }
 
     async function removerCampeonato(id) {
-      await fetch(`${api}/${id}`, { method: "DELETE" });
-      carregarCampeonatos();
+      if (!confirm("Confirma exclusão do campeonato?")) return;
+
+      try {
+        const res = await fetch(`${api}/${id}`, { method: "DELETE" });
+        console.log("DELETE response:", res);
+        if (!res.ok) {
+          const erroTexto = await res.text();
+          throw new Error("Erro ao excluir campeonato: " + erroTexto);
+        }
+        mostrarMensagem("Campeonato excluído com sucesso!");
+        carregarCampeonatos();
+      } catch (error) {
+        alert(error.message);
+        console.error(error);
+      }
     }
 
     function limparFormulario() {
@@ -236,7 +277,18 @@
       document.getElementById("moeda").value = "R$";
       document.getElementById("premiacao").value = "";
       document.getElementById("botaoSalvar").innerText = "Cadastrar Campeonato";
-      document.getElementById("popup").style.display = "none";
+    }
+
+    let timeoutPopup;
+    function mostrarMensagem(texto) {
+      const popup = document.getElementById("popupMensagem");
+      popup.innerText = texto;
+      popup.style.display = "block";
+
+      clearTimeout(timeoutPopup);
+      timeoutPopup = setTimeout(() => {
+        popup.style.display = "none";
+      }, 3500);
     }
 
     carregarCampeonatos();
